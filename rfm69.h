@@ -11,6 +11,8 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include "rfm69ModemSettings.h"
+
 /*
  * Register definition
  */
@@ -249,11 +251,28 @@
 #define REG_TEST_DAGC 0x6F
 #define REG_TEST_AFC 0x71
 
+enum
+{
+	RF69PKTENC_DEFAULT = 0,
+	RF69PKTENC_ON,
+	RF69PKTENC_OFF,
+};
+
 /*
  * Begin Structs
  */
+
 typedef struct
 {
+	uint8_t (*exchangebyte)(uint8_t);
+	void (*select)(void);
+	void (*deselect)(void);
+}RFM69INTERFACE_t;
+
+typedef struct
+{
+	uint8_t* encKey;
+	uint8_t enc;
 	uint8_t size;
 	uint8_t dst;
 	uint8_t data[64];
@@ -269,40 +288,181 @@ typedef struct
  * Begin function prototypes
  */
 
+/**
+ * Initialize the rfm69 module.
+ * @param interface SPI interface description.
+ */
+void rfm69_init(RFM69INTERFACE_t interface);
 
-void rfm69_init(void);
 
+/**
+ * Redads one register from module.
+ * @param addr Register address
+ * @return
+ */
 uint8_t rfm69_readReg(uint8_t addr);
+
+/**
+ * Write register on module.
+ * @param addr Register address.
+ * @param data Data to write
+ */
 void rfm69_writeReg(uint8_t addr, uint8_t data);
 
-
+/**
+ * Writes n registers beginning from the specified address.
+ * @param addr Address of first register.
+ * @param data Pointer to the data.
+ * @param size Register count.
+ */
 void rfm69_writeRegBurst(uint8_t addr, uint8_t* data, uint8_t size);
+
+/**
+ * Reads n registers beginning from the specified address.
+ * @param addr Address of first register.
+ * @param data Pointer to the destination.
+ * @param size Register count.
+ */
 void rfm69_readRegBurst(uint8_t addr, uint8_t* data, uint8_t size);
 
 
+/**
+ * Sets the frequency in MHz
+ * @param frequency Frequency in MHz e.g 433.92
+ */
+void rfm69_setFrequency(float frequency);
+
+/**
+ * Set output power. Note: Boost currently not supported.
+ * @param outputPower Output power in dBm. Range: [-18,14]
+ */
+void rfm69_setTxPower(int8_t outputPower);
+
+/**
+ * Sets MSB and LSB deviation registers.
+ * @param deviation Concatenated deviation configuration.
+ */
 void rfm69_setFdev(uint16_t deviation);
+
+/**
+ * Sets MSB and LSB bitrate registers
+ * @param bitrate Concatenated bitrate configuration.
+ */
 void rfm69_setBitrate(uint16_t bitrate);
+
+/**
+ * Sets the three rx bandwidth parameters.
+ * @param DccFreq
+ * @param RxBwMant
+ * @param RxBwExp
+ */
 void rfm69_setRxBw(uint8_t DccFreq, uint8_t RxBwMant, uint8_t RxBwExp);
 
+/**
+ * Sets the tree afc bandwidth parameters.
+ * @param DccFreq
+ * @param RxBwMant
+ * @param RxBwExp
+ */
+void rfm69_setAfcBw(uint8_t DccFreq, uint8_t RxBwMant, uint8_t RxBwExp);
+
+
+/**
+ * Sets all modemparameter at once. Predefined parameters are available.
+ * @param mparams Modem parameters.
+ */
+void rfm69_setModemParameter(RFM69MODEMPARMS_t mparams);
+
+
+
+/**
+ * Sets the network id (PANID).
+ * @param panid PANID
+ */
 void rfm69_setPANID(uint8_t panid);
+
+/**
+ * Sets the nework address.
+ * @param addr Address.
+ */
 void rfm69_setAddr(uint8_t addr);
+
+/**
+ * Sets the broadcast address.
+ * @param baddr Broadcast address.
+ */
 void rfm69_setBroadcastAddr(uint8_t baddr);
 
 
+/**
+ * Sets the encryption key.
+ * @param key Pointer to 16 byte array with key.
+ */
 void rfm69_setKey(uint8_t* key);
-void rfm69_setEnEnc(bool enable);
 
+/**
+ * Enables or disables encryption.
+ * @param enable True = enrcyption enabled, False = encryption disabled
+ */
+
+void rfm69_enableEncryption(bool enable);
+
+/**
+ *
+ */
 void rfm69_DIO0_INT(void);
 
+/**
+ * Writes data to module FIFO.
+ * @param data Pointer to data.
+ * @param size Data size.
+ */
 void rfm69_writeFIFO(uint8_t* data, uint8_t size);
+
+/**
+ *
+ */
 void rfm69_readFIFO(void);
 
+/**
+ * Send a packet.
+ * @param pkt Pointer to packet.
+ */
 void rfm69_sendPacket(RFM69PKT_t *pkt);
+
+
+/**
+ * Send packet with one time different modem settings.
+ * @param pkt Pointer to packet.
+ * @param modemParams Modem parameter.
+ */
+void rfm69_sendPacketModSet(RFM69PKT_t* pkt, RFM69MODEMPARMS_t modemParams);
+
+/**
+ * Gets packet if available
+ * @return NULL if no packet is available, otherwise valid pointer.
+ */
 RFM69PKT_t* rfm69_getPacket(void);
+
+/**
+ * Clears packet - Call this if work is finished on the packet.
+ */
 void rfm69_clearPacket(void);
 
+
+/**
+ * Sets the module in RX mode.
+ */
 void rfm69_RX(void);
 
+/**
+ * Sets the module in TX mode.
+ */
 void rfm69_TX(void);
+
+/**
+ * Sets module back to IDLE
+ */
+void rfm69_IDLE(void);
 
 #endif /* SRC_RFM69_RFM69_H_ */

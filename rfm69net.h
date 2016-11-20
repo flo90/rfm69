@@ -11,33 +11,25 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "rfm69.h"
+
+
 typedef struct
 {
+	uint8_t* encKey;
+	uint8_t enc;
+
 	uint8_t size;
 	uint8_t dst;
 	uint8_t src;
 	uint8_t service;
-	uint8_t data[];
-}RFM69PACKET_t;
-
-typedef struct
-{
-	RFM69PACKET_t* packet;
-	bool ready;
+	uint8_t* data;
 }RFM69NETFRAME_t;
 
 
 
-void rfm69net_init(void);
+void rfm69net_init(RFM69INTERFACE_t paramInterface);
 void rfm69net_poll(void);
-
-
-/*
- * Connection Module <-> stack
- */
-RFM69NETFRAME_t* rfm69net_reqFrame(uint16_t size);
-
-
 
 /*
  * Connection user side <-> stack
