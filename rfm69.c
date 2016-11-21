@@ -57,6 +57,18 @@ void rfm69_init(RFM69INTERFACE_t paramInterface)
 	interface = paramInterface;
 
 	/*
+	 * Init datastructures
+	 */
+
+	state = IDLE;
+
+	for(i = 0; i < MAXPKTS; i++)
+	{
+		packets[i].clear = true;
+	}
+
+
+	/*
 	 * Geral stuff
 	 */
 
@@ -137,20 +149,6 @@ void rfm69_init(RFM69INTERFACE_t paramInterface)
 
 	//Restart RX after packet received
 	rfm69_writeReg(REG_PACKET_CONFIG2, REG_PACKET_CONFIG2_AUTO_RX_RESTART_ON | REG_PACKET_CONFIG2_RESTART_RX);
-
-
-	/*
-	 * Init datastructures
-	 */
-
-	state = IDLE;
-
-	for(i = 0; i < MAXPKTS; i++)
-	{
-		packets[i].clear = true;
-	}
-
-
 }
 
 void rfm69_writeReg(uint8_t addr, uint8_t data)
@@ -322,7 +320,7 @@ void rfm69_writeFIFO(uint8_t* data, uint8_t size)
 
 void rfm69_sendPacket(RFM69PKT_t *pkt)
 {
-	rfm69_IDLE();
+	rfm69_writeReg(REG_OP_MODE, REG_OP_MODE_STDBY);
 
 	switch(pkt->enc)
 	{
@@ -376,8 +374,6 @@ void rfm69_sendPacketModSet(RFM69PKT_t* pkt, RFM69MODEMPARMS_t modemParams)
 
 	state = TXMODSET;
 	rfm69_setModemParameter(modemParams);
-
-
 
 	rfm69_sendPacket(pkt);
 }
