@@ -17,6 +17,7 @@
 /*
  * Library configuration
  */
+
 //Selects SPI Method. Currently two are available
 #define SPI_METHOD 1
 
