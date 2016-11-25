@@ -15,12 +15,9 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "../usart.h"
-
-#define NEW_METHOD
-
 //USE POWER OF 2!!!
 #define MAXPKTS 4
+
 
 typedef enum
 {
@@ -61,20 +58,19 @@ void rfm69_init(RFM69INTERFACE_t paramInterface)
 	 * Init datastructures
 	 */
 
-	state = IDLE;
-
 	for(i = 0; i < MAXPKTS; i++)
 	{
 		packets[i].clear = true;
 	}
 
-
 	/*
 	 * Geral stuff
 	 */
 
-	//Start with STANDBY
-	rfm69_writeReg(REG_OP_MODE, REG_OP_MODE_STDBY);
+	//Small check if module is accessible
+	if( 0x24 != rfm69_readReg(REG_VERSION)) return;
+
+	rfm69_IDLE();
 
 	//CLK OFF - To save energy
 	rfm69_writeReg(REG_DIO_MAPPING2, 0b111);
@@ -593,7 +589,7 @@ void rfm69_interruptHandler()
 #endif
 
 			++currentPkt;
-			currentPkt &= 0b11;
+			currentPkt &= MAXPKTS-1;
 		}
 
 		else
