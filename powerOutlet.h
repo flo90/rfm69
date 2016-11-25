@@ -15,7 +15,7 @@
 
 /**
  * Generates and sends an packet matching the protocol of the HX2262 used in many RC power outlets.
- * @param cmd 12 character long command. Three states are possible: Zero(0), One(1), Float(f/F) representet by the characters
+ * @param cmd 12 character long command. Three states are possible: Zero(0), One(1), Float(f/F)
  * @return 0 = OK, -1 = Too few characters, -2 = Unsupported character
  */
 int8_t powerOutlet_hx2262(const char* cmd);

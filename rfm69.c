@@ -15,11 +15,12 @@
 #include <string.h>
 #include <stdio.h>
 
+#include "../usart.h"
+
 #define NEW_METHOD
 
 //USE POWER OF 2!!!
 #define MAXPKTS 4
-
 
 typedef enum
 {
@@ -112,7 +113,7 @@ void rfm69_init(RFM69INTERFACE_t paramInterface)
 	rfm69_writeReg(REG_TEST_DAGC, 0x20);
 
 	rfm69_writeReg(REG_TEST_AFC, 45);
-	*/
+	 */
 
 	rfm69_setModemParameter(MODEM_CONFIG_TABLE[18]);
 
@@ -153,13 +154,21 @@ void rfm69_init(RFM69INTERFACE_t paramInterface)
 
 void rfm69_writeReg(uint8_t addr, uint8_t data)
 {
+#if SPI_METHOD == 0
 	interface.select();
-
 	interface.exchangebyte(addr + 0x80);
 	interface.exchangebyte(data);
 	interface.deselect();
+#else
+	uint8_t temp[2];
+	temp[0] = addr | 0x80;
+	temp[1] = data;
+
+	interface.spiRW(temp, sizeof(temp));
+#endif
 }
 
+#if SPI_METHOD == 0
 void rfm69_writeRegBurst(uint8_t addr, uint8_t* data, uint8_t size)
 {
 	uint8_t i;
@@ -173,9 +182,13 @@ void rfm69_writeRegBurst(uint8_t addr, uint8_t* data, uint8_t size)
 	}
 	interface.deselect();
 }
+#endif
+
 
 uint8_t rfm69_readReg(uint8_t addr)
 {
+
+#if SPI_METHOD == 0
 	uint8_t temp;
 	interface.select();
 
@@ -185,9 +198,16 @@ uint8_t rfm69_readReg(uint8_t addr)
 
 	interface.deselect();
 
-	return temp;
+
+#else
+	uint8_t temp[2];
+	temp[0] = addr & 0x7F;
+	interface.spiRW(temp, sizeof(temp));
+#endif
+	return temp[1];
 }
 
+#if SPI_METHOD == 0
 void rfm69_readRegBurst(uint8_t addr, uint8_t* data, uint8_t size)
 {
 	uint8_t i;
@@ -212,9 +232,12 @@ void rfm69_readRegBurst(uint8_t addr, uint8_t* data, uint8_t size)
 
 	interface.deselect();
 }
+#endif
+
 
 void rfm69_setFrequency(float frequency)
 {
+#if SPI_METHOD == 0
 	uint8_t freq[3];
 	uint32_t combinedFreq;
 
@@ -225,7 +248,20 @@ void rfm69_setFrequency(float frequency)
 	freq[2] = (combinedFreq) & 0xFF;
 
 	rfm69_writeRegBurst(REG_FRF_MSB, freq, 3);
+#else
 
+	uint8_t freq[4];
+	uint32_t combinedFreq;
+
+	combinedFreq = (uint32_t) ( (float) frequency/61.0f * 1000000.0);
+
+	freq[0] = REG_FRF_MSB | 0x80;
+	freq[1] = (combinedFreq>>16) & 0xFF;
+	freq[2] = (combinedFreq>>8) & 0xFF;
+	freq[3] = (combinedFreq) & 0xFF;
+
+	interface.spiRW(freq, sizeof(freq));
+#endif
 }
 
 void rfm69_setTxPower(int8_t outputPower)
@@ -241,20 +277,39 @@ void rfm69_setTxPower(int8_t outputPower)
 
 void rfm69_setFdev(uint16_t deviation)
 {
+#if SPI_METHOD == 0
 	uint8_t temp[2];
 	temp[0] = deviation>>8;
 	temp[1] = deviation&0xFF;
 
 	rfm69_writeRegBurst(REG_FDEV_MSB, temp, 2);
+#else
+	uint8_t temp[3];
+	temp[0] = REG_FDEV_MSB | 0x80;
+	temp[1] = deviation>>8;
+	temp[2] = deviation&0xFF;
+
+	interface.spiRW(temp, sizeof(temp));
+#endif
 }
 
 void rfm69_setBitrate(uint16_t bitrate)
 {
+#if SPI_METHOD == 0
 	uint8_t temp[2];
 	temp[0] = bitrate>>8;
 	temp[1] = bitrate&0xFF;
 
 	rfm69_writeRegBurst(REG_BITRATE_MSB, temp, 2);
+#else
+	uint8_t temp[3];
+
+	temp[0] = REG_BITRATE_MSB | 0x80;
+	temp[1] = bitrate>>8;
+	temp[2] = bitrate&0xFF;
+
+	interface.spiRW(temp, sizeof(temp));
+#endif
 }
 
 
@@ -289,8 +344,16 @@ void rfm69_setBroadcastAddr(uint8_t baddr)
 
 void rfm69_setKey(uint8_t* key)
 {
+#if SPI_METHOD == 0
 	memcpy(lastKey, key, sizeof(lastKey));
 	rfm69_writeRegBurst(REG_AES_KEY1, key, 16);
+#else
+	uint8_t temp[17];
+	temp[0] = REG_AES_KEY1 | 0x80;
+	memcpy(temp+1, key, 16);
+
+	interface.spiRW(temp, sizeof(temp));
+#endif
 }
 
 void rfm69_enableEncryption(bool enable)
@@ -309,13 +372,18 @@ void setEnableEncryption(bool enable)
 
 void restoreEncryption()
 {
+#if SPI_METHOD == 0
 	if(restoreKey) rfm69_writeRegBurst(REG_AES_KEY1, lastKey, 16);
+#else
+	uint8_t temp[17];
+	if(restoreKey)
+	{
+		temp[0] = REG_AES_KEY1 | 0x80;
+		memcpy(temp+1, lastKey, 16);
+		interface.spiRW(temp, sizeof(temp));
+	}
+#endif
 	if(restoreEncState) setEnableEncryption(lastEncState);
-}
-
-void rfm69_writeFIFO(uint8_t* data, uint8_t size)
-{
-	rfm69_writeRegBurst(REG_FIFO, data, size);
 }
 
 void rfm69_sendPacket(RFM69PKT_t *pkt)
@@ -340,27 +408,36 @@ void rfm69_sendPacket(RFM69PKT_t *pkt)
 
 	if(NULL != pkt->encKey)
 	{
+#if SPI_METHOD == 0
 		rfm69_writeRegBurst(REG_AES_KEY1, pkt->encKey, 16);
+#else
+		uint8_t temp[17];
+		temp[0] = REG_AES_KEY1 | 0x80;
+		memcpy(temp+1, lastKey, 16);
+
+		interface.spiRW(temp, sizeof(temp));
+#endif
 		restoreKey = true;
 	}
 
-	//set fifo trigger to size - 1; set msb to 1
+	//Set fifo trigger to size - 1;
 	rfm69_writeReg(REG_FIFO_THRESH, pkt->size+1);
 
-	//DIO0 if packet sent - connect DIO0 to interrupt
-	rfm69_writeReg(REG_DIO_MAPPING1, 0x00);
-
-
-	//switch to TX mode
-	rfm69_writeReg(REG_OP_MODE, 0x0C);
-
-	if(state != TXMODSET) state = TX;
+	//Switch to Tx mode
+	rfm69_TX();
 
 	//Add one for address
 	++pkt->size;
 
 	//Start from size and copy - again add one because of the size byte itself
+#if SPI_METHOD == 0
 	rfm69_writeRegBurst(REG_FIFO, (uint8_t*) &pkt->size, pkt->size + 1);
+#else
+	pkt->spiCmdPlaceholder = REG_FIFO | 0x80;
+
+	//Begin from &pkt->spiCmdPlaceholder
+	interface.spiRW(&pkt->spiCmdPlaceholder, pkt->size + 2);
+#endif
 
 	//Restore original packet size.
 	--pkt->size;
@@ -400,23 +477,40 @@ void rfm69_clearPacket()
 
 void rfm69_TX()
 {
-	state = TX;
+	if(state != TXMODSET) state = TX;
 
+#if USE_AUTOMODES
+	//DIO2 to automode
+	rfm69_writeReg(REG_DIO_MAPPING1, (0b11<<2));
+
+	//Setting to tx automode
+	rfm69_writeReg(REG_AUTO_MODES, 0x5B);
+#else
 	//DIO0 if packet sent - connect DIO0 to interrupt
 	rfm69_writeReg(REG_DIO_MAPPING1, 0x00);
 
 	//switch to TX mode
 	rfm69_writeReg(REG_OP_MODE, 0x0C);
+#endif
+
+
 }
 
 void rfm69_RX()
 {
 	state = RX;
 
+#if USE_AUTOMODES
+	//DIO2 to automode
+	rfm69_writeReg(REG_DIO_MAPPING1, (0b11<<2));
+
+	//Setting to auto Mode
+	rfm69_writeReg(REG_AUTO_MODES, 0xF2);
+#else
 	//SET DIO0 to PAYLOADREADY
 	rfm69_writeReg(REG_DIO_MAPPING1, (0b01<<6));
-
-	//Set opmode to RX
+#endif
+	//Set to RX Mode
 	rfm69_writeReg(REG_OP_MODE, REG_OP_MODE_RX);
 
 	rfm69_writeReg(REG_PACKET_CONFIG2, REG_PACKET_CONFIG2_AUTO_RX_RESTART_ON | REG_PACKET_CONFIG2_RESTART_RX);
@@ -426,7 +520,12 @@ void rfm69_RX()
 void rfm69_IDLE()
 {
 	state = IDLE;
+	//Disable Auto Mode
+	rfm69_writeReg(REG_AUTO_MODES, 0);
+
+	//Switch to standby
 	rfm69_writeReg(REG_OP_MODE, REG_OP_MODE_STDBY);
+
 }
 
 void rfm69_setModemParameter(RFM69MODEMPARMS_t mparams)
@@ -442,9 +541,17 @@ void rfm69_setModemParameter(RFM69MODEMPARMS_t mparams)
 	rfm69_writeReg(REG_PACKET_CONFIG1, mparams.packetConfig1);
 }
 
-void rfm69_DIO0_INT()
+void rfm69_interruptHandler()
 {
 	uint8_t size;
+	uint8_t IRQFlags;
+
+#if USE_AUTOMODES
+	IRQFlags = rfm69_readReg(REG_IRQ_FLAGS1);
+#else
+	IRQFlags = rfm69_readReg(REG_IRQ_FLAGS2);
+#endif
+
 	switch (state)
 	{
 	case IDLE:
@@ -452,13 +559,38 @@ void rfm69_DIO0_INT()
 
 	case RX:
 		//Read FIFO
-		size = rfm69_readReg(REG_FIFO);
+#if USE_AUTOMODES
+		/*
+		 * Checks if automode is unset.
+		 * If unset it left the intermediate mode - In RX this means the module received a packet
+		 */
+		if( (IRQFlags & (1<<1)) ) break;
+#else
+		//Check if Payload is ready otherwise just continue
+		if( ! (IRQFlags & (1<<2)) ) break;
+#endif
 
+#if SPI_METHOD == 0
+		size = rfm69_readReg(REG_FIFO);
+#endif
 		if(packets[currentPkt].clear)
 		{
 			packets[currentPkt].clear = false;
+#if SPI_METHOD == 0
 			packets[currentPkt].pkt.size = size;
 			rfm69_readRegBurst(REG_FIFO, &packets[currentPkt].pkt.dst, size);
+#else
+			packets[currentPkt].pkt.spiCmdPlaceholder = REG_FIFO;
+
+			interface.spiRW(&packets[currentPkt].pkt.spiCmdPlaceholder, 2);
+			size = packets[currentPkt].pkt.size;
+
+			packets[currentPkt].pkt.rxSpiCmdPlaceholder = REG_FIFO;
+			interface.spiRW(&packets[currentPkt].pkt.rxSpiCmdPlaceholder, size+1);
+			packets[currentPkt].pkt.rxSpiCmdPlaceholder = size;
+
+
+#endif
 
 			++currentPkt;
 			currentPkt &= 0b11;
@@ -466,18 +598,50 @@ void rfm69_DIO0_INT()
 
 		else
 		{
+#if SPI_METHOD == 0
 			rfm69_readRegBurst(REG_FIFO, NULL, size);
-		}
+#else
+			RFM69PKT_t dummyPkt;
+			dummyPkt.spiCmdPlaceholder = REG_FIFO;
 
+			interface.spiRW(&dummyPkt.spiCmdPlaceholder, 2);
+			size = dummyPkt.size;
+
+			dummyPkt.rxSpiCmdPlaceholder = REG_FIFO;
+			interface.spiRW(&dummyPkt.rxSpiCmdPlaceholder, size+1);
+			dummyPkt.rxSpiCmdPlaceholder = size;
+#endif
+		}
 		break;
 
 	case TX:
+#if USE_AUTOMODES
+		/*
+		 * Checks if automode is unset.
+		 * If unset it left the intermediate mode - In TX this means the module has sent the packet
+		 */
+		if( (IRQFlags & (1<<1)) ) break;
+#else
+		//Check if packet is sent otherwise just continue
+		if( ! (IRQFlags & (1<<3) )) break;
+#endif
+
 		//sending should be finished here - return to RX
 		restoreEncryption();
 		rfm69_RX();
 		break;
 
 	case TXMODSET:
+#if USE_AUTOMODES
+		/*
+		 * Checks if automode is unset.
+		 * If unset it left the intermediate mode - In TX this means the module has sent the packet
+		 */
+		if( (IRQFlags & (1<<1)) ) break;
+#else
+		//Check if packet is sent otherwise just continue
+		if( ! (IRQFlags & (1<<3) )) break;
+#endif
 		rfm69_setModemParameter(lastModemParams);
 		restoreEncryption();
 		rfm69_RX();
