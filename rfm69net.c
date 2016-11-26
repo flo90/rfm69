@@ -8,7 +8,6 @@
 
 #include "rfm69net.h"
 #include "rfm69.h"
-#include "../usart.h"
 
 #include <stdint.h>
 #include <stdio.h>

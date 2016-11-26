@@ -10,7 +10,6 @@
 #include "rfm69net.h"
 
 #include <stdlib.h>
-#include <avr/io.h>
 #include <util/delay.h>
 #include <string.h>
 #include <stdio.h>
@@ -48,7 +47,7 @@ static bool restoreEncState = false;
 void setEnableEncryption(bool enable);
 void restoreEncryption(void);
 
-void rfm69_init(RFM69INTERFACE_t paramInterface)
+bool rfm69_init(RFM69INTERFACE_t paramInterface)
 {
 	uint8_t i;
 
@@ -68,7 +67,7 @@ void rfm69_init(RFM69INTERFACE_t paramInterface)
 	 */
 
 	//Small check if module is accessible
-	if( 0x24 != rfm69_readReg(REG_VERSION)) return;
+	if( 0x24 != rfm69_readReg(REG_VERSION)) return false;
 
 	rfm69_IDLE();
 
@@ -146,6 +145,8 @@ void rfm69_init(RFM69INTERFACE_t paramInterface)
 
 	//Restart RX after packet received
 	rfm69_writeReg(REG_PACKET_CONFIG2, REG_PACKET_CONFIG2_AUTO_RX_RESTART_ON | REG_PACKET_CONFIG2_RESTART_RX);
+
+	return true;
 }
 
 void rfm69_writeReg(uint8_t addr, uint8_t data)
