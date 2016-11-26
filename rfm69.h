@@ -319,7 +319,7 @@ typedef struct
  * Initialize the rfm69 module.
  * @param interface SPI interface description.
  */
-void rfm69_init(RFM69INTERFACE_t interface);
+bool rfm69_init(RFM69INTERFACE_t interface);
 
 
 /**
