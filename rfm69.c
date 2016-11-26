@@ -10,7 +10,6 @@
 #include "rfm69net.h"
 
 #include <stdlib.h>
-#include <util/delay.h>
 #include <string.h>
 #include <stdio.h>
 
