@@ -25,7 +25,7 @@ static const uint8_t logicOne = 0xEE;
 static const uint8_t logicFloat = 0x8E;
 
 static const RFM69MODEMPARMS_t powerOutletConfig =
-{ CONFIG_OOK, 0x3200, 0x0029, 0xf4, 0xf4, CONFIG_NOWHITE}; // GFSK_Rb2_5Fd5_0
+{ CONFIG_OOK, 0x3200, 0x0029, 0xf4, 0xf4, CONFIG_NOWHITE_NOCRC}; // OOK_NOCRC_Rb2_5Fd5_0
 
 int8_t powerOutlet_hx2262(const char* cmd)
 {
