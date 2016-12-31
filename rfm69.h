@@ -27,9 +27,6 @@
  * Library configuration
  */
 
-//Selects SPI Method. Currently two are available
-#define SPI_METHOD 1
-
 //Use Automodes
 #define USE_AUTOMODES 1
 
@@ -284,31 +281,20 @@ enum
 
 typedef struct
 {
-#if SPI_METHOD == 0
-	uint8_t (*exchangebyte)(uint8_t);
-	void (*select)(void);
-	void (*deselect)(void);
-#else
 	void (*spiRW)(uint8_t* data, uint8_t size);
-#endif
 }RFM69INTERFACE_t;
 
 typedef struct
 {
 	uint8_t* encKey;
 	uint8_t enc;
-#if SPI_METHOD != 0
 	uint8_t spiCmdPlaceholder;
-#endif
-#if SPI_METHOD == 0
-	uint8_t size;
-#else
+
 	union
 	{
 		uint8_t size;
 		uint8_t rxSpiCmdPlaceholder;
 	};
-#endif
 
 	uint8_t dst;
 	uint8_t data[64];
@@ -344,26 +330,6 @@ uint8_t rfm69_readReg(uint8_t addr);
  * @param data Data to write
  */
 void rfm69_writeReg(uint8_t addr, uint8_t data);
-
-/**
- * Writes n registers beginning from the specified address.
- * @param addr Address of first register.
- * @param data Pointer to the data.
- * @param size Register count.
- */
-#if SPI_METHOD == 0
-void rfm69_writeRegBurst(uint8_t addr, uint8_t* data, uint8_t size);
-#endif
-
-/**
- * Reads n registers beginning from the specified address.
- * @param addr Address of first register.
- * @param data Pointer to the destination.
- * @param size Register count.
- */
-#if SPI_METHOD == 0
-void rfm69_readRegBurst(uint8_t addr, uint8_t* data, uint8_t size);
-#endif
 
 /**
  * Sets the frequency in MHz

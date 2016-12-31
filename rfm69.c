@@ -117,10 +117,10 @@ bool rfm69_init(RFM69INTERFACE_t paramInterface)
 	rfm69_writeReg(REG_TEST_AFC, 45);
 	 */
 
-	rfm69_setModemParameter(MODEM_CONFIG_TABLE[18]);
+	rfm69_setModemParameter(MODEM_CONFIG_TABLE[10]);
 
 	//Set Power
-	rfm69_setTxPower(-18);
+	rfm69_setTxPower(10);
 
 	rfm69_setFrequency(433.92);
 
@@ -132,7 +132,7 @@ bool rfm69_init(RFM69INTERFACE_t paramInterface)
 	 * Init Packet Management
 	 */
 
-	rfm69_writeReg(REG_PREAMBLE_LSB, 3);
+	rfm69_writeReg(REG_PREAMBLE_LSB, 10);
 
 	//SYNC ON, 2 SYNC BYTES
 	rfm69_writeReg(REG_SYNC_CONFIG, REG_SYNC_CONFIG_SYNC_ON + (1<<3));
@@ -153,107 +153,30 @@ bool rfm69_init(RFM69INTERFACE_t paramInterface)
 	//Restart RX after packet received
 	rfm69_writeReg(REG_PACKET_CONFIG2, REG_PACKET_CONFIG2_AUTO_RX_RESTART_ON | REG_PACKET_CONFIG2_RESTART_RX);
 
+	//rfm69_writeReg(REG_OCP, 0b00001010);
+
 	return true;
 }
 
 void rfm69_writeReg(uint8_t addr, uint8_t data)
 {
-#if SPI_METHOD == 0
-	interface.select();
-	interface.exchangebyte(addr + 0x80);
-	interface.exchangebyte(data);
-	interface.deselect();
-#else
 	uint8_t temp[2];
 	temp[0] = addr | 0x80;
 	temp[1] = data;
 
 	interface.spiRW(temp, sizeof(temp));
-#endif
 }
-
-#if SPI_METHOD == 0
-void rfm69_writeRegBurst(uint8_t addr, uint8_t* data, uint8_t size)
-{
-	uint8_t i;
-
-	interface.select();
-	interface.exchangebyte(addr | 0x80);
-
-	for(i=0; i < size; i++)
-	{
-		interface.exchangebyte(data[i]);
-	}
-	interface.deselect();
-}
-#endif
-
 
 uint8_t rfm69_readReg(uint8_t addr)
 {
-
-#if SPI_METHOD == 0
-	uint8_t temp;
-	interface.select();
-
-	interface.exchangebyte(addr&0x7F);
-
-	temp = interface.exchangebyte(0);
-
-	interface.deselect();
-
-
-#else
 	uint8_t temp[2];
 	temp[0] = addr & 0x7F;
 	interface.spiRW(temp, sizeof(temp));
-#endif
 	return temp[1];
 }
 
-#if SPI_METHOD == 0
-void rfm69_readRegBurst(uint8_t addr, uint8_t* data, uint8_t size)
-{
-	uint8_t i;
-
-	interface.select();
-	interface.exchangebyte(addr&0x7F);
-	if(data != NULL)
-	{
-		for (i = 0; i < size; i++)
-		{
-			*data++ = interface.exchangebyte(0);
-		}
-	}
-
-	else
-	{
-		for (i = 0; i < size; i++)
-		{
-			interface.exchangebyte(0);
-		}
-	}
-
-	interface.deselect();
-}
-#endif
-
-
 void rfm69_setFrequency(float frequency)
 {
-#if SPI_METHOD == 0
-	uint8_t freq[3];
-	uint32_t combinedFreq;
-
-	combinedFreq = (uint32_t) ( (float) frequency/61.0f * 1000000.0);
-
-	freq[0] = (combinedFreq>>16) & 0xFF;
-	freq[1] = (combinedFreq>>8) & 0xFF;
-	freq[2] = (combinedFreq) & 0xFF;
-
-	rfm69_writeRegBurst(REG_FRF_MSB, freq, 3);
-#else
-
 	uint8_t freq[4];
 	uint32_t combinedFreq;
 
@@ -265,7 +188,6 @@ void rfm69_setFrequency(float frequency)
 	freq[3] = (combinedFreq) & 0xFF;
 
 	interface.spiRW(freq, sizeof(freq));
-#endif
 }
 
 void rfm69_setTxPower(int8_t outputPower)
@@ -281,31 +203,16 @@ void rfm69_setTxPower(int8_t outputPower)
 
 void rfm69_setFdev(uint16_t deviation)
 {
-#if SPI_METHOD == 0
-	uint8_t temp[2];
-	temp[0] = deviation>>8;
-	temp[1] = deviation&0xFF;
-
-	rfm69_writeRegBurst(REG_FDEV_MSB, temp, 2);
-#else
 	uint8_t temp[3];
 	temp[0] = REG_FDEV_MSB | 0x80;
 	temp[1] = deviation>>8;
 	temp[2] = deviation&0xFF;
 
 	interface.spiRW(temp, sizeof(temp));
-#endif
 }
 
 void rfm69_setBitrate(uint16_t bitrate)
 {
-#if SPI_METHOD == 0
-	uint8_t temp[2];
-	temp[0] = bitrate>>8;
-	temp[1] = bitrate&0xFF;
-
-	rfm69_writeRegBurst(REG_BITRATE_MSB, temp, 2);
-#else
 	uint8_t temp[3];
 
 	temp[0] = REG_BITRATE_MSB | 0x80;
@@ -313,19 +220,18 @@ void rfm69_setBitrate(uint16_t bitrate)
 	temp[2] = bitrate&0xFF;
 
 	interface.spiRW(temp, sizeof(temp));
-#endif
 }
 
 
 void rfm69_setRxBw(uint8_t DccFreq, uint8_t RxBwMant, uint8_t RxBwExp)
 {
-	uint8_t temp = ((DccFreq<<5)&0xE0) + ((RxBwMant<<3)&0x18) + (RxBwExp&0x07);
+	uint8_t temp = ((DccFreq<<5)&0xE0) | ((RxBwMant<<3)&0x18) | (RxBwExp&0x07);
 	rfm69_writeReg(REG_RX_BW, temp);
 }
 
 void rfm69_setAfcBw(uint8_t DccFreq, uint8_t RxBwMant, uint8_t RxBwExp)
 {
-	uint8_t temp = ((DccFreq<<5)&0xE0) + ((RxBwMant<<3)&0x18) + (RxBwExp&0x07);
+	uint8_t temp = ((DccFreq<<5)&0xE0) | ((RxBwMant<<3)&0x18) | (RxBwExp&0x07);
 	rfm69_writeReg(REG_AFC_BW, temp);
 }
 
@@ -348,16 +254,11 @@ void rfm69_setBroadcastAddr(uint8_t baddr)
 
 void rfm69_setKey(uint8_t* key)
 {
-#if SPI_METHOD == 0
-	memcpy(lastKey, key, sizeof(lastKey));
-	rfm69_writeRegBurst(REG_AES_KEY1, key, 16);
-#else
 	uint8_t temp[17];
 	temp[0] = REG_AES_KEY1 | 0x80;
 	memcpy(temp+1, key, 16);
 
 	interface.spiRW(temp, sizeof(temp));
-#endif
 }
 
 void rfm69_enableEncryption(bool enable)
@@ -376,9 +277,6 @@ void setEnableEncryption(bool enable)
 
 void restoreEncryption()
 {
-#if SPI_METHOD == 0
-	if(restoreKey) rfm69_writeRegBurst(REG_AES_KEY1, lastKey, 16);
-#else
 	uint8_t temp[17];
 	if(restoreKey)
 	{
@@ -386,7 +284,6 @@ void restoreEncryption()
 		memcpy(temp+1, lastKey, 16);
 		interface.spiRW(temp, sizeof(temp));
 	}
-#endif
 	if(restoreEncState) setEnableEncryption(lastEncState);
 }
 
@@ -412,15 +309,11 @@ void rfm69_sendPacket(RFM69PKT_t *pkt)
 
 	if(NULL != pkt->encKey)
 	{
-#if SPI_METHOD == 0
-		rfm69_writeRegBurst(REG_AES_KEY1, pkt->encKey, 16);
-#else
 		uint8_t temp[17];
 		temp[0] = REG_AES_KEY1 | 0x80;
 		memcpy(temp+1, lastKey, 16);
 
 		interface.spiRW(temp, sizeof(temp));
-#endif
 		restoreKey = true;
 	}
 
@@ -434,14 +327,10 @@ void rfm69_sendPacket(RFM69PKT_t *pkt)
 	++pkt->size;
 
 	//Start from size and copy - again add one because of the size byte itself
-#if SPI_METHOD == 0
-	rfm69_writeRegBurst(REG_FIFO, (uint8_t*) &pkt->size, pkt->size + 1);
-#else
 	pkt->spiCmdPlaceholder = REG_FIFO | 0x80;
 
 	//Begin from &pkt->spiCmdPlaceholder
 	interface.spiRW(&pkt->spiCmdPlaceholder, pkt->size + 2);
-#endif
 
 	//Restore original packet size.
 	--pkt->size;
@@ -454,7 +343,7 @@ void rfm69_sendPacketModSet(RFM69PKT_t* pkt, RFM69MODEMPARMS_t modemParams)
 	rfm69_IDLE();
 
 	state = TXMODSET;
-	rfm69_setModemParameter(modemParams);
+	//rfm69_setModemParameter(modemParams);
 
 	rfm69_sendPacket(pkt);
 }
@@ -574,16 +463,10 @@ void rfm69_interruptHandler()
 		if( ! (IRQFlags & (1<<2)) ) break;
 #endif
 
-#if SPI_METHOD == 0
-		size = rfm69_readReg(REG_FIFO);
-#endif
 		if(packets[currentPkt].clear)
 		{
 			packets[currentPkt].clear = false;
-#if SPI_METHOD == 0
-			packets[currentPkt].pkt.size = size;
-			rfm69_readRegBurst(REG_FIFO, &packets[currentPkt].pkt.dst, size);
-#else
+
 			packets[currentPkt].pkt.spiCmdPlaceholder = REG_FIFO;
 
 			interface.spiRW(&packets[currentPkt].pkt.spiCmdPlaceholder, 2);
@@ -593,18 +476,13 @@ void rfm69_interruptHandler()
 			interface.spiRW(&packets[currentPkt].pkt.rxSpiCmdPlaceholder, size+1);
 			packets[currentPkt].pkt.rxSpiCmdPlaceholder = size;
 
-
-#endif
-
 			++currentPkt;
 			currentPkt &= MAXPKTS-1;
 		}
 
 		else
 		{
-#if SPI_METHOD == 0
-			rfm69_readRegBurst(REG_FIFO, NULL, size);
-#else
+
 			RFM69PKT_t dummyPkt;
 			dummyPkt.spiCmdPlaceholder = REG_FIFO;
 
@@ -614,7 +492,7 @@ void rfm69_interruptHandler()
 			dummyPkt.rxSpiCmdPlaceholder = REG_FIFO;
 			interface.spiRW(&dummyPkt.rxSpiCmdPlaceholder, size+1);
 			dummyPkt.rxSpiCmdPlaceholder = size;
-#endif
+
 		}
 		break;
 
